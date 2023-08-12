@@ -16,17 +16,20 @@ const TransferToken = () => {
   const [account, setAccount] = useState("");
   const [currentChain, setCurrentChain] = useState("");
   const [fromAmount, setFromAmount] = useState("");
-  const [toAmount, setToAmount] = useState("");
   const [selectedChain, setSelectedChain] = useState("ethereum");
   const [destinationAddress, setDestinationAddress] = useState("");
   const [selectedToken, setSelectedToken] = useState("LINK");
 
   async function Connect() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    setProvider(provider);
-    const accounts = await provider.send("eth_requestAccounts", []);
-    setAccount(accounts[0]);
-    console.log(accounts);
+    if (window.ethereum) {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      setProvider(provider);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      setAccount(accounts[0]);
+      console.log(accounts);
+    } else {
+      alert("Please install metamask");
+    }
   }
 
   async function getBalance(address: string) {
@@ -89,19 +92,6 @@ const TransferToken = () => {
       });
   }, []);
 
-  useEffect(() => {
-    async function run() {
-      if (window.ethereum) {
-        if (selectedToken) {
-          setFromAmount(
-            await getBalance(tokenMapping.get(selectedToken) as string)
-          );
-        }
-      }
-    }
-    run();
-  }, [selectedToken]);
-
   return (
     <div>
       <nav className="px-20 flex items-center justify-between p-4 bg-blue-500">
@@ -154,18 +144,10 @@ const TransferToken = () => {
         <div className="flex justify-between mb-4">
           <input
             type="number"
-            placeholder="0.00"
-            className="flex-1 px-1 py-2 mr-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
+            placeholder="Amount to be transferred"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             value={fromAmount}
             onChange={(e) => setFromAmount(e.target.value)}
-          />
-          <div className="self-center">⇄</div>
-          <input
-            type="number"
-            placeholder="0.00"
-            className="flex-1 px-1 py-2 ml-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
-            value={toAmount}
-            onChange={(e) => setToAmount(e.target.value)}
           />
         </div>
         <div className="mb-4">
