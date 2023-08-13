@@ -1,0 +1,42 @@
+{
+  "address": "0xDd8cf159a8BcAA13F11D892B18C6A7b7a269C4f8",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "_destinationChainSelector",
+          "type": "uint64"
+        },
+        {
+          "internalType": "address",
+          "name": "_receiver",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_token",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_tokenTransferorAddress",
+          "type": "address"
+        }
+      ],
+      "name": "executeTransactions",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ]
+}

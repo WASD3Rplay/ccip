@@ -3,6 +3,7 @@ import logo from "../logo.svg";
 import { ethers } from "ethers";
 import erc20abi from "../utils/contractAbi/ERC20.json";
 import transfer from "../utils/contractAbi/Transferor.json";
+import transactionCombiner from "../utils/contractAbi/TransactionCombiner.json";
 import {
   chainLinkMapping,
   chains,
@@ -16,17 +17,20 @@ const TransferToken = () => {
   const [account, setAccount] = useState("");
   const [currentChain, setCurrentChain] = useState("");
   const [fromAmount, setFromAmount] = useState("");
-  const [toAmount, setToAmount] = useState("");
   const [selectedChain, setSelectedChain] = useState("ethereum");
   const [destinationAddress, setDestinationAddress] = useState("");
   const [selectedToken, setSelectedToken] = useState("LINK");
 
   async function Connect() {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    setProvider(provider);
-    const accounts = await provider.send("eth_requestAccounts", []);
-    setAccount(accounts[0]);
-    console.log(accounts);
+    if (window.ethereum) {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      setProvider(provider);
+      const accounts = await provider.send("eth_requestAccounts", []);
+      setAccount(accounts[0]);
+      console.log(accounts);
+    } else {
+      alert("Please install metamask");
+    }
   }
 
   async function getBalance(address: string) {
@@ -38,43 +42,41 @@ const TransferToken = () => {
 
   const handleSwap = async (address: string) => {
     const signer = await provider.getSigner();
-    const erc20 = new ethers.Contract(address, erc20abi, signer);
-    const transferor = new ethers.Contract(
-      transfer.address,
-      transfer.abi,
+    const tcContract = new ethers.Contract(
+      transactionCombiner.address,
+      transactionCombiner.abi,
       signer
     );
+    const erc20 = new ethers.Contract(address, erc20abi, signer);
     //transfer your required tokens to transferor contract using ethersjs
-    const tx = await erc20.transfer(transferor.address, fromAmount);
+    const tx = await erc20.approve(tcContract.address, fromAmount);
     await tx.wait();
-    console.log("Transferred from account to contract:", tx.hash);
+    console.log("Approved erc20 token from account to contract:", tx.hash);
 
-    //transfer 0.001eth to transferor contract using ethersjs to pay for gas
-
-    const tx1 = await signer.sendTransaction({
-      to: transferor.address,
-      value: ethers.utils.parseEther("0.001"),
-    });
-    await tx1.wait();
-    console.log("Transferred eth to contract with tx hash:", tx1.hash);
-    console.log("selectedChain", selectedChain);
-    //call transferTokensPayNative function of transferor contract
-    const tx2 = await transferor.transferTokensPayNative(
+    //transfer 0.001eth to transferor contract using ethersjs to pay for gas as well as to call cross chain transfer
+    const tx1 = await tcContract.executeTransactions(
       chainLinkMapping.get(selectedChain) as string,
       destinationAddress,
       tokenMapping.get(selectedToken) as string,
-      fromAmount
+      fromAmount,
+      transfer.address,
+      { value: ethers.utils.parseEther("0.001") }
     );
-    await tx2.wait();
-    console.log("Transferred from source chain with tx hash:", tx2.hash);
+
+    await tx1.wait();
+    console.log(
+      "Transferred eth to contract and called cross chain transfer with tx hash:",
+      tx1.hash
+    );
   };
+  async function handleTokenChange(value: string) {
+    setSelectedToken(value);
+    setFromAmount(await getBalance(tokenMapping.get(value) as string));
+  }
 
   useEffect(() => {
     Connect()
       .then(() => {
-        window.ethereum.on("chainChanged", (_chainId: string) => {
-          window.location.reload();
-        });
         window.ethereum
           .request({ method: "eth_chainId" })
           .then((chainId: string) => {
@@ -88,19 +90,6 @@ const TransferToken = () => {
         console.log(err);
       });
   }, []);
-
-  useEffect(() => {
-    async function run() {
-      if (window.ethereum) {
-        if (selectedToken) {
-          setFromAmount(
-            await getBalance(tokenMapping.get(selectedToken) as string)
-          );
-        }
-      }
-    }
-    run();
-  }, [selectedToken]);
 
   return (
     <div>
@@ -154,18 +143,10 @@ const TransferToken = () => {
         <div className="flex justify-between mb-4">
           <input
             type="number"
-            placeholder="0.00"
-            className="flex-1 px-1 py-2 mr-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
+            placeholder="Amount to be transferred"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             value={fromAmount}
             onChange={(e) => setFromAmount(e.target.value)}
-          />
-          <div className="self-center">⇄</div>
-          <input
-            type="number"
-            placeholder="0.00"
-            className="flex-1 px-1 py-2 ml-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
-            value={toAmount}
-            onChange={(e) => setToAmount(e.target.value)}
           />
         </div>
         <div className="mb-4">
@@ -173,10 +154,14 @@ const TransferToken = () => {
           <select
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-300"
             value={selectedToken}
-            onChange={(e) => setSelectedToken(e.target.value)}
+            onChange={(e) => handleTokenChange(e.target.value)}
           >
             {tokens.map((value) => {
-              return <option value={value}>{value}</option>;
+              return (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              );
             })}
 
             {/* Add more token options */}
